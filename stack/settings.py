@@ -6,3 +6,4 @@ SPIDER_MODULES = ['stack.spiders']
 NEWSPIDER_MODULE = 'stack.spiders'
 
 ITEM_PIPELINES = ['stack.pipelines.StackPipeline', ]
+DOWNLOAD_DELAY = 5

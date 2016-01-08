@@ -1,24 +1,37 @@
 # -*- coding: utf-8 -*-
-
-from scrapy import Spider
-from scrapy.selector import Selector
+import scrapy
+from scrapy.linkextractors import LinkExtractor
+from scrapy.spiders import CrawlSpider, Rule
 
 from stack.items import StackItem
 
 
-class StackSpider(Spider):
+class StackSpider(CrawlSpider):
     name = "stack"
     allowed_domains = ["stackoverflow.com"]
     start_urls = [
         "http://stackoverflow.com/questions?pagesize=50&sort=newest",
     ]
 
-    def parse(self, response):
-        questions = Selector(response).xpath('//div[@class="summary"]/h3')
+    rules = (
+        Rule(LinkExtractor(allow=r"questions\?page=[0-5]&sort=newest"),
+             callback="parse_item", follow=True),
+    )
+
+    def parse_item(self, response):
+        questions = response.xpath('//div[@class="summary"]/h3')
+
         for question in questions:
-            item = StackItem()
-            item['title'] = question.xpath(
-                'a[@class="question-hyperlink"]/text()').extract()[0]
-            item['url'] = question.xpath(
+            question_location = question.xpath(
                 'a[@class="question-hyperlink"]/@href').extract()[0]
-            yield item
+            full_url = response.urljoin(question_location)
+            yield scrapy.Request(full_url, callback=self.parse_question)
+
+    def parse_question(self, response):
+        item = StackItem()
+        item["title"] = response.css(
+            "#question-header h1 a::text").extract()[0]
+        item["url"] = response.url
+        item["content"] = response.css(
+            ".question .post-text").extract()[0]
+        yield item
